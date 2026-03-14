@@ -1,0 +1,32 @@
+name: Daily Tech Pulse Automation
+
+on:
+  schedule:
+    # 3:00 PM IST is 09:30 AM UTC
+    - cron: '30 9 * * *'
+  workflow_dispatch: # Allows you to run it manually from the "Actions" tab
+
+jobs:
+  run-script:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install google-genai requests
+
+      - name: Execute Daily Pulse Script
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
+          NEWS_DATA_KEY: ${{ secrets.NEWS_DATA_KEY }}
+        run: python daily_pulse.py
