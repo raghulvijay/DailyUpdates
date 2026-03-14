@@ -29,4 +29,4 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
           NEWS_DATA_KEY: ${{ secrets.NEWS_DATA_KEY }}
-        run: python daily_pulse.py
+        run: python .github/workflows/daily_pulse.py
