@@ -10,6 +10,11 @@ GEMINI_KEY = os.getenv("GEMINI_API_KEY")
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 NEWS_DATA_KEY = os.getenv("NEWS_DATA_KEY")
 
+# Debugging prints for GitHub Logs
+if not WEBHOOK_URL: print("❌ ERROR: WEBHOOK_URL is missing!")
+if not GEMINI_KEY: print("❌ ERROR: GEMINI_API_KEY is missing!")
+if not NEWS_DATA_KEY: print("❌ ERROR: NEWS_DATA_KEY is missing!")
+
 client = genai.Client(api_key=GEMINI_KEY)
 
 def get_yesterday_context():
@@ -21,11 +26,9 @@ def get_yesterday_context():
 def fetch_all_stack_news():
     y_date, y_unix = get_yesterday_context()
     print(f"📡 Gathering All-Stack Intelligence for {y_date}...")
-    
     news_buffer = []
 
-    # A. Search Hacker News for TOP Tech Trends (>100 points)
-    # This captures the most important tech story regardless of keyword
+    # A. Hacker News
     try:
         hn_url = f"https://hn.algolia.com/api/v1/search?tags=story&numericFilters=created_at_i>{y_unix},points>100"
         hn_res = requests.get(hn_url, timeout=10).json()
@@ -33,20 +36,13 @@ def fetch_all_stack_news():
             news_buffer.append(f"[Trending] {hit['title']} (URL: {hit.get('url')})")
     except Exception as e: print(f"⚠️ HN Error: {e}")
 
-    # B. Global News with Broad Tech Stack Query
+    # B. NewsData
     try:
-        # Broad query covering AI, Web, Mobile, DevOps, and Backend
-        broad_query = (
-            "Artificial Intelligence OR LLM OR Cybersecurity OR "
-            "ReactJS OR Angular OR Node.js OR Python OR GoLang OR "
-            "DevOps OR Kubernetes OR Cloud Computing OR Open Source"
-        )
+        broad_query = "Artificial Intelligence OR LLM OR Cybersecurity OR ReactJS OR DevOps"
         url = f"https://newsdata.io/api/1/news?apikey={NEWS_DATA_KEY}&q={broad_query}&language=en&from_date={y_date}"
         res = requests.get(url, timeout=15).json()
         articles = res.get('results', [])
-        
         if articles:
-            # Logic to handle varying list lengths safely
             count = min(len(articles), 12) 
             for i in range(count):
                 news_buffer.append(f"[News] {articles[i]['title']} (Source: {articles[i].get('source_id')})")
@@ -56,58 +52,39 @@ def fetch_all_stack_news():
 
 def generate_full_brief(raw_content, retries=3):
     print("🧠 Gemini Deep Dive: Analyzing All-Stack Trends...")
+    y_date, _ = get_yesterday_context()
+    yesterday_str = datetime.strptime(y_date, '%Y-%m-%d').strftime('%B %d, %Y')
     
     model_id = "gemini-2.5-flash-lite"
-    search_tool = types.Tool(google_search=types.GoogleSearch())
     
     prompt = (
         f"You are a Senior Technical Architect. Analyze these updates from the last 24h:\n{raw_content}\n\n"
-        "Instructions:\n"
-        "1. Identify the 1 most critical AI update.\n"
-        "2. Identify the 3 most important tech updates.\n"
-        "3. Format specifically for Zoho Cliq Markdown.\n\n"
-        "CRITICAL FORMATTING RULES:\n"
-        "- Use '#' for Main Titles.\n"
-        "- Use '---' for horizontal separators.\n"
-        "- Use '**' for bold text.\n"
-        "- Use TWO newlines between every section.\n\n"
-        "STRUCTURE:\n"
-        "# 🚀 TOP AI DEEP-DIVE | {yesterday_str}\n"
-        "**[Title]**\n"
-        "*Impact*: [2 sentences]\n\n"
-        "---\n\n"
-        "# 🤖 AI & MACHINE LEARNING\n"
-        "* [Item 1]\n"
-        "* [Item 2]\n\n"
-        "---\n\n"
-        "# 💻 FULL-STACK & DEVOPS\n"
-        "* [Item 1]\n"
-        "* [Item 2]\n"
-        "* [Item 3]\n\n"
-        "---\n\n"
-        "# 🔧 TOOLS & OPEN SOURCE\n"
-        "* [Interesting tool/repo]\n"
+        f"STRUCTURE:\n# 🚀 TOP AI DEEP-DIVE | {yesterday_str}\n"
+        "**[Title]**\n*Impact*: [2 sentences]\n\n---\n\n"
+        "# 🤖 AI & MACHINE LEARNING\n* [Item 1]\n* [Item 2]\n\n"
+        "---\n\n# 💻 FULL-STACK & DEVOPS\n* [Item 1]\n* [Item 2]\n\n"
+        "---\n\n# 🔧 TOOLS & OPEN SOURCE\n* [Tool name]\n"
     )
 
     for i in range(retries):
         try:
-            response = client.models.generate_content(
-                model=model_id,
-                contents=prompt,
-                config=types.GenerateContentConfig(tools=[search_tool])
-            )
+            response = client.models.generate_content(model=model_id, contents=prompt)
             return response.text
         except Exception as e:
-            if "429" in str(e) and i < retries - 1:
-                time.sleep((i + 1) * 30)
+            if ("429" in str(e) or "RESOURCE_EXHAUSTED" in str(e)) and i < retries - 1:
+                print(f"⚠️ Quota hit. Retrying in 40s...")
+                time.sleep(40)
             else: return f"AI Generation Failed: {e}"
 
 def post_to_zoho(message):
+    if not WEBHOOK_URL: return
     print("📤 Sending to Zoho Cliq...")
     try:
-        requests.post(WEBHOOK_URL, json={"text": message}, timeout=10)
+        res = requests.post(WEBHOOK_URL, json={"text": message}, timeout=10)
+        res.raise_for_status() # This will catch errors like 404 or 500
         print("✅ Production Brief Delivered.")
-    except Exception as e: print(f"❌ Zoho Error: {e}")
+    except Exception as e: 
+        print(f"❌ Zoho Error: {e}")
 
 if __name__ == "__main__":
     data = fetch_all_stack_news()
