@@ -77,11 +77,18 @@ def generate_full_brief(raw_content, retries=3):
             else: return f"AI Generation Failed: {e}"
 
 def post_to_zoho(message):
-    if not WEBHOOK_URL: return
+    # .strip() removes any accidental spaces or hidden newline characters
+    url = WEBHOOK_URL.strip() if WEBHOOK_URL else None
+    
+    if not url or not url.startswith("http"):
+        print(f"❌ ERROR: Invalid Webhook URL format: {url}")
+        return
+
     print("📤 Sending to Zoho Cliq...")
     try:
-        res = requests.post(WEBHOOK_URL, json={"text": message}, timeout=10)
-        res.raise_for_status() # This will catch errors like 404 or 500
+        # We use the cleaned 'url' variable here
+        res = requests.post(url, json={"text": message}, timeout=15)
+        res.raise_for_status()
         print("✅ Production Brief Delivered.")
     except Exception as e: 
         print(f"❌ Zoho Error: {e}")
