@@ -52,7 +52,7 @@ def generate_full_brief(raw_content, retries=3):
     yesterday_display_date, _, _ = get_yesterday_context()
     print(f"🧠 Gemini Architect: Summarizing Tech for {yesterday_display_date}...")
     
-    model_id = "gemini-2.0-flash-lite"
+    model_id = "gemini-2.5-flash-lite"
     
     prompt = (
         f"You are a Senior Technical Architect. Analyze these news items from {yesterday_display_date}:\n{raw_content}\n\n"
@@ -63,7 +63,6 @@ def generate_full_brief(raw_content, retries=3):
         f"### 🚀 TOP INDUSTRY SHAKERS\n"
         f"* **[Company] | [Feature]** ([URL])\n"
         f"  * **The What:** 1 sentence technical summary.\n"
-        f"  * **Product Does:** What technical limitation existed before this.\n"
         f"  * **The Impact:** 1 sentence on why it matters to our team.\n\n"
         f"### 🧠 LLM & MODEL UPDATES\n"
         f"* [Item] ([URL])\n\n"
