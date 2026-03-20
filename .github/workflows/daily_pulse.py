@@ -52,26 +52,26 @@ def generate_full_brief(raw_content, retries=3):
     yesterday_display_date, _, _ = get_yesterday_context()
     print(f"🧠 Gemini Architect: Summarizing Tech for {yesterday_display_date}...")
     
-    # Use the correct stable model ID
     model_id = "gemini-2.5-flash-lite"
     
+    # UPDATED PROMPT: Learning-focused with Problem/Solution and HTML bolding
     prompt = (
         f"You are a Lead Technical Instructor. Analyze these news items from {yesterday_display_date}:\n{raw_content}\n\n"
-        f"Goal: Help a beginner developer learn AI through 'Problem vs Solution' analysis.\n\n"
+        f"Goal: Help a beginner developer learn AI by explaining the 'Why' behind every update.\n\n"
         f"FORMATTING RULE:\n"
-        f"1. DO NOT use asterisks (**) for bolding.\n"
-        f"2. Use HTML <b> tags for bolding. Example: <b>The Problem:</b>\n"
-        f"3. Ensure every news item includes its URL.\n\n"
+        f"1. DO NOT use asterisks (**) for bolding. It breaks the UI.\n"
+        f"2. Use ONLY HTML <b> tags for bolding. Example: <b>The Problem:</b>\n"
+        f"3. Do not add spaces inside the <b> tags.\n\n"
         f"STRUCTURE:\n"
         f"# 💊 DAILY TECH PILL | {yesterday_display_date}\n"
         f"<b>Vibe Check:</b> [Emoji + Mood Summary]\n"
-        f"<b>Architect’s Take:</b> [2 sentence analysis of why today matters]\n\n"
+        f"<b>Architect’s Take:</b> [2 sentence analysis of today's core shift]\n\n"
         f"### 🚀 TOP INDUSTRY SHAKERS\n"
         f"* <b>[Company] | [Feature]</b> ([URL])\n"
-        f"  * <b>The Source:</b> [1 sentence on who the publisher is]\n"
-        f"  * <b>The Problem:</b> [Explain the technical gap or pain point this update addresses]\n"
-        f"  *<b>The Solution:</b> [Explain how this specific update/model solves that gap]\n"
-        f"  *<b>The Impact:</b> [How it changes our development workflow]\n\n"
+        f"  * <b>The Source:</b> [1 sentence on who the publisher/author is]\n"
+        f"  * <b>The Problem:</b> [Explain the technical gap, limitation, or pain point this update addresses]\n"
+        f"  * <b>The Solution:</b> [How this specific update/model solves that technical gap]\n"
+        f"  * <b>The Impact:</b> [How this changes the way we build software]\n\n"
         f"### 🧠 LLM & MODEL UPDATES\n"
         f"### 🤖 AGENT & FRAMEWORK UPDATES\n"
         f"### 💻 FULL-STACK & DEVOPS UPDATES\n"
@@ -92,7 +92,7 @@ def generate_full_brief(raw_content, retries=3):
             else:
                 print(f"⚠️ Attempt {i+1} failed: {e}")
                 time.sleep(10)
-    return "AI Generation Failed. Please check the logs."
+    return "AI Generation Failed. Please check logs."
 
 def post_to_zoho(message):
     url = WEBHOOK_URL.strip() if WEBHOOK_URL else None
@@ -100,6 +100,7 @@ def post_to_zoho(message):
 
     print("📤 Sending to Zoho Cliq...")
     try:
+        # We send as "text" because Cliq automatically renders <b> as bold.
         res = requests.post(url, json={"text": message}, timeout=15)
         res.raise_for_status()
         print("✅ Daily Pill Delivered.")
