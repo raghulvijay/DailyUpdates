@@ -62,7 +62,6 @@ def generate_full_brief(raw_content, retries=3):
         f"**Architect’s Take:** [2 sentence high-level analysis of today's core shift]\n\n"
         f"### 🚀 TOP INDUSTRY SHAKERS\n"
         f"* **[Company] | [Feature]** ([URL])\n"
-        f"  * **The Problem** Explain the technical gap or pain point this update addresses.\n"
         f"  * **The What:** 1 sentence technical summary.\n"
         f"  * **The Impact:** 1 sentence on why it matters to our team.\n\n"
         f"### 🧠 LLM & MODEL UPDATES\n"
