@@ -12,46 +12,49 @@ NEWS_DATA_KEY = os.getenv("NEWS_DATA_KEY")
 client = genai.Client(api_key=GEMINI_KEY)
 
 def get_yesterday_context():
-    now = datetime.now()
-    yesterday_date_obj = now - timedelta(days=1)
-    yesterday_str = yesterday_date_obj.strftime('%B %d, %Y')
-    yesterday_iso = yesterday_date_obj.strftime('%Y-%m-%d')
-    yesterday_unix = int(yesterday_date_obj.timestamp())
-    return yesterday_str, yesterday_iso, yesterday_unix
+    now = datetime.now()
+    # News is from yesterday
+    yesterday_date_obj = now - timedelta(days=1)
+    yesterday_str = yesterday_date_obj.strftime('%B %d, %Y') # e.g., March 17, 2026
+    yesterday_iso = yesterday_date_obj.strftime('%Y-%m-%d')
+    yesterday_unix = int(yesterday_date_obj.timestamp())
+    return yesterday_str, yesterday_iso, yesterday_unix
 
 def fetch_all_stack_news():
-    _, y_iso, y_unix = get_yesterday_context()
-    print(f"📡 Gathering Intelligence for {y_iso}...")
-    news_buffer = []
+    _, y_iso, y_unix = get_yesterday_context()
+    print(f"📡 Gathering Intelligence for {y_iso}...")
+    news_buffer = []
 
-    try:
-        hn_url = f"https://hn.algolia.com/api/v1/search?tags=story&numericFilters=created_at_i>{y_unix},points>100"
-        hn_res = requests.get(hn_url, timeout=10).json()
-        hits = hn_res.get('hits', [])
-        if isinstance(hits, list):
-            for hit in hits[:10]:
-                news_buffer.append(f"[HN] {hit['title']} (URL: {hit.get('url')})")
-    except Exception as e: print(f"⚠️ HN Error: {e}")
+    # A. Hacker News
+    try:
+        hn_url = f"https://hn.algolia.com/api/v1/search?tags=story&numericFilters=created_at_i>{y_unix},points>100"
+        hn_res = requests.get(hn_url, timeout=10).json()
+        hits = hn_res.get('hits', [])
+        if isinstance(hits, list):
+            for hit in hits[:10]:
+                news_buffer.append(f"[HN] {hit['title']} (URL: {hit.get('url')})")
+    except Exception as e: print(f"⚠️ HN Error: {e}")
 
-    try:
-        broad_query = "OpenAI OR Anthropic OR NVIDIA OR AI Agent OR DevOps OR ReactJS"
-        url = f"https://newsdata.io/api/1/news?apikey={NEWS_DATA_KEY}&q={broad_query}&language=en"
-        res = requests.get(url, timeout=15).json()
-        articles = res.get('results', [])
-        if isinstance(articles, list):
-            for art in articles[:10]:
-                news_buffer.append(f"[News] {art.get('title')} (URL: {art.get('link')})")
-    except Exception as e: print(f"⚠️ NewsData Error: {e}")
+    # B. NewsData
+    try:
+        broad_query = "OpenAI OR Anthropic OR NVIDIA OR AI Agent OR DevOps OR ReactJS"
+        url = f"https://newsdata.io/api/1/news?apikey={NEWS_DATA_KEY}&q={broad_query}&language=en"
+        res = requests.get(url, timeout=15).json()
+        articles = res.get('results', [])
+        if isinstance(articles, list):
+            for art in articles[:10]:
+                news_buffer.append(f"[News] {art.get('title')} (URL: {art.get('link')})")
+    except Exception as e: print(f"⚠️ NewsData Error: {e}")
 
-    return "\n".join(news_buffer)
+    return "\n".join(news_buffer)
 
 def generate_full_brief(raw_content, retries=3):
-    yesterday_display_date, _, _ = get_yesterday_context()
-    print(f"🧠 Gemini Architect: Summarizing Tech for {yesterday_display_date}...")
-    
-    model_id = "gemini-2.5-flash-lite"
-    
-    # UPDATED PROMPT: Uses HTML <b> for bolding and adds Problem/Solution context
+    yesterday_display_date, _, _ = get_yesterday_context()
+    print(f"🧠 Gemini Architect: Summarizing Tech for {yesterday_display_date}...")
+    
+    model_id = "gemini-2.5-flash-lite"
+    
+    # UPDATED PROMPT: Uses HTML <b> for bolding and adds Problem/Solution context
     prompt = (
         f"You are a Lead Technical Instructor. Analyze these news items from {yesterday_display_date}:\n{raw_content}\n\n"
         f"Goal: Help a beginner developer learn AI through 'Problem vs Solution' analysis.\n\n"
@@ -78,34 +81,33 @@ def generate_full_brief(raw_content, retries=3):
         f"> [The actual prompt text]\n"
     )
 
-    for i in range(retries):
-        try:
-            response = client.models.generate_content(model=model_id, contents=prompt)
-            return response.text
-        except Exception as e:
-            if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
-                print(f"⚠️ Quota hit. Waiting 70s for cooldown...")
-                time.sleep(70)
-            else:
-                print(f"⚠️ Attempt {i+1} failed: {e}")
-                time.sleep(10)
-    return "AI Generation Failed."
+    for i in range(retries):
+        try:
+            response = client.models.generate_content(model=model_id, contents=prompt)
+            return response.text
+        except Exception as e:
+            if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
+                print(f"⚠️ Quota hit. Waiting 70s for cooldown (Attempt {i+1}/{retries})...")
+                time.sleep(70)
+            else:
+                print(f"⚠️ Attempt {i+1} failed: {e}")
+                time.sleep(10)
+    return "AI Generation Failed. Please check the logs."
 
 def post_to_zoho(message):
-    url = WEBHOOK_URL.strip() if WEBHOOK_URL else None
-    if not url: return
+    url = WEBHOOK_URL.strip() if WEBHOOK_URL else None
+    if not url: return
 
-    print("📤 Sending to Zoho Cliq...")
-    try:
-        # We send raw text because Cliq interprets HTML tags (<b>) automatically
-        res = requests.post(url, json={"text": message}, timeout=15)
-        res.raise_for_status()
-        print("✅ Daily Pill Delivered.")
-    except Exception as e: 
-        print(f"❌ Zoho Error: {e}")
+    print("📤 Sending to Zoho Cliq...")
+    try:
+        res = requests.post(url, json={"text": message}, timeout=15)
+        res.raise_for_status()
+        print("✅ Daily Pill Delivered.")
+    except Exception as e: 
+        print(f"❌ Zoho Error: {e}")
 
 if __name__ == "__main__":
-    data = fetch_all_stack_news()
-    if data:
-        brief = generate_full_brief(data)
-        post_to_zoho(brief)
+    data = fetch_all_stack_news()
+    if data:
+        brief = generate_full_brief(data)
+        post_to_zoho(brief)
