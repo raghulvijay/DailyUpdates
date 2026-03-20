@@ -13,9 +13,8 @@ client = genai.Client(api_key=GEMINI_KEY)
 
 def get_yesterday_context():
     now = datetime.now()
-    # News is from yesterday
     yesterday_date_obj = now - timedelta(days=1)
-    yesterday_str = yesterday_date_obj.strftime('%B %d, %Y') # e.g., March 17, 2026
+    yesterday_str = yesterday_date_obj.strftime('%B %d, %Y')
     yesterday_iso = yesterday_date_obj.strftime('%Y-%m-%d')
     yesterday_unix = int(yesterday_date_obj.timestamp())
     return yesterday_str, yesterday_iso, yesterday_unix
@@ -25,7 +24,6 @@ def fetch_all_stack_news():
     print(f"📡 Gathering Intelligence for {y_iso}...")
     news_buffer = []
 
-    # A. Hacker News
     try:
         hn_url = f"https://hn.algolia.com/api/v1/search?tags=story&numericFilters=created_at_i>{y_unix},points>100"
         hn_res = requests.get(hn_url, timeout=10).json()
@@ -35,7 +33,6 @@ def fetch_all_stack_news():
                 news_buffer.append(f"[HN] {hit['title']} (URL: {hit.get('url')})")
     except Exception as e: print(f"⚠️ HN Error: {e}")
 
-    # B. NewsData
     try:
         broad_query = "OpenAI OR Anthropic OR NVIDIA OR AI Agent OR DevOps OR ReactJS"
         url = f"https://newsdata.io/api/1/news?apikey={NEWS_DATA_KEY}&q={broad_query}&language=en"
@@ -54,28 +51,31 @@ def generate_full_brief(raw_content, retries=3):
     
     model_id = "gemini-2.5-flash-lite"
     
+    # UPDATED PROMPT: Uses HTML <b> for bolding and adds Problem/Solution context
     prompt = (
-        f"You are a Senior Technical Architect. Analyze these news items from {yesterday_display_date}:\n{raw_content}\n\n"
-        f"Create a 'Daily Tech Pill' report for a developer team. Use this EXACT structure:\n\n"
+        f"You are a Lead Technical Instructor. Analyze these news items from {yesterday_display_date}:\n{raw_content}\n\n"
+        f"Goal: Help a beginner developer learn AI through 'Problem vs Solution' analysis.\n\n"
+        f"FORMATTING RULE:\n"
+        f"1. DO NOT use asterisks (**) for bolding.\n"
+        f"2. Use HTML <b> tags for bolding. Example: <b>The Problem:</b>\n"
+        f"3. Ensure every news item includes its URL.\n\n"
+        f"STRUCTURE:\n"
         f"# 💊 DAILY TECH PILL | {yesterday_display_date}\n"
-        f"**Vibe Check:** [One emoji + one sentence on the market mood]\n"
-        f"**Architect’s Take:** [2 sentence high-level analysis of today's core shift]\n\n"
+        f"<b>Vibe Check:</b> [Emoji + Mood Summary]\n"
+        f"<b>Architect’s Take:</b> [2 sentence analysis of why today matters]\n\n"
         f"### 🚀 TOP INDUSTRY SHAKERS\n"
-        f"* **[Company] | [Feature]** ([URL])\n"
-        f"  * **The What:** 1 sentence technical summary.\n"
-        f"  * **The Impact:** 1 sentence on why it matters to our team.\n\n"
+        f"* <b>[Company] | [Feature]</b> ([URL])\n"
+        f"  * <b>The Source:</b> [1 sentence on who the publisher is]\n"
+        f"  * <b>The Problem:</b> [Explain the technical gap or pain point this update addresses]\n"
+        f"  * <b>The Solution:</b> [Explain how this specific update/model solves that gap]\n"
+        f"  * <b>The Impact:</b> [How it changes our development workflow]\n\n"
         f"### 🧠 LLM & MODEL UPDATES\n"
-        f"* [Item] ([URL])\n\n"
         f"### 🤖 AGENT & FRAMEWORK UPDATES\n"
-        f"* [Item] ([URL])\n\n"
         f"### 💻 FULL-STACK & DEVOPS UPDATES\n"
-        f"* [Item] ([URL])\n\n"
-        f"### 🔧 TECH & INFRASTRUCTURE\n"
-        f"* [Item] ([URL])\n\n"
+        f"### 🔧 TECH & INFRASTRUCTURE\n\n"
         f"### 💡 PROMPT OF THE DAY\n"
-        f"**Goal:** Technical Architecture\n"
-        f"> [The actual prompt text]\n\n"
-        f"Keep the tone professional yet crispy. Ensure every item has a URL."
+        f"<b>Goal:</b> Technical Growth\n"
+        f"> [The actual prompt text]\n"
     )
 
     for i in range(retries):
@@ -84,12 +84,12 @@ def generate_full_brief(raw_content, retries=3):
             return response.text
         except Exception as e:
             if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
-                print(f"⚠️ Quota hit. Waiting 70s for cooldown (Attempt {i+1}/{retries})...")
+                print(f"⚠️ Quota hit. Waiting 70s for cooldown...")
                 time.sleep(70)
             else:
                 print(f"⚠️ Attempt {i+1} failed: {e}")
                 time.sleep(10)
-    return "AI Generation Failed. Please check the logs."
+    return "AI Generation Failed."
 
 def post_to_zoho(message):
     url = WEBHOOK_URL.strip() if WEBHOOK_URL else None
@@ -97,6 +97,7 @@ def post_to_zoho(message):
 
     print("📤 Sending to Zoho Cliq...")
     try:
+        # We send raw text because Cliq interprets HTML tags (<b>) automatically
         res = requests.post(url, json={"text": message}, timeout=15)
         res.raise_for_status()
         print("✅ Daily Pill Delivered.")
