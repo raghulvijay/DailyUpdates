@@ -63,6 +63,7 @@ def generate_full_brief(raw_content, retries=3):
         f"### 🚀 TOP INDUSTRY SHAKERS\n"
         f"* **[Company] | [Feature]** ([URL])\n"
         f"  * **The What:** 1 sentence technical summary.\n"
+        f"  * **Product Does:** What technical limitation existed before this.\n"
         f"  * **The Impact:** 1 sentence on why it matters to our team.\n\n"
         f"### 🧠 LLM & MODEL UPDATES\n"
         f"* [Item] ([URL])\n\n"
