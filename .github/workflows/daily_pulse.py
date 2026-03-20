@@ -30,17 +30,22 @@ def fetch_all_stack_news():
         hn_url = f"https://hn.algolia.com/api/v1/search?tags=story&numericFilters=created_at_i>{y_unix},points>100"
         hn_res = requests.get(hn_url, timeout=10).json()
         hits = hn_res.get('hits', [])
-
         if isinstance(hits, list):
             for hit in hits[:10]:
                 news_buffer.append(f"[HN] {hit['title']} (URL: {hit.get('url')})")
+    except Exception as e: print(f"⚠️ HN Error: {e}")
+
+    # B. NewsData
+    try:
+        broad_query = "OpenAI OR Anthropic OR NVIDIA OR AI Agent OR DevOps OR ReactJS"
         url = f"https://newsdata.io/api/1/news?apikey={NEWS_DATA_KEY}&q={broad_query}&language=en"
         res = requests.get(url, timeout=15).json()
         articles = res.get('results', [])
-
         if isinstance(articles, list):
             for art in articles[:10]:
                 news_buffer.append(f"[News] {art.get('title')} (URL: {art.get('link')})")
+    except Exception as e: print(f"⚠️ NewsData Error: {e}")
+
     return "\n".join(news_buffer)
 
 def generate_full_brief(raw_content, retries=3):
@@ -48,31 +53,28 @@ def generate_full_brief(raw_content, retries=3):
     print(f"🧠 Gemini Architect: Summarizing Tech for {yesterday_display_date}...")
     
     model_id = "gemini-2.5-flash-lite"
-
-prompt = (
-        f"You are a Lead Technical Instructor. Analyze these news items from {yesterday_display_date}:\n{raw_content}\n\n"
-        f"Goal: Help a beginner developer learn AI through 'Problem vs Solution' analysis.\n\n"
-        f"FORMATTING RULE:\n"
-        f"1. DO NOT use asterisks (**) for bolding. It breaks the UI.\n"
-        f"2. Use ONLY HTML <b> tags for bolding. Example: <b>The Problem:</b>\n"
-        f"3. Do not add spaces inside the <b> tags.\n\n"
-        f"STRUCTURE:\n"
+    
+    prompt = (
+        f"You are a Senior Technical Architect. Analyze these news items from {yesterday_display_date}:\n{raw_content}\n\n"
+        f"Create a 'Daily Tech Pill' report for a developer team. Use this EXACT structure:\n\n"
         f"# 💊 DAILY TECH PILL | {yesterday_display_date}\n"
-        f"<b>Vibe Check:</b> [Emoji + Mood Summary]\n"
-        f"<b>Architect’s Take:</b> [2 sentence analysis of why today matters]\n\n"
+        f"**Vibe Check:** [One emoji + one sentence on the market mood]\n"
+        f"**Architect’s Take:** [2 sentence high-level analysis of today's core shift]\n\n"
         f"### 🚀 TOP INDUSTRY SHAKERS\n"
-        f"* <b>[Company] | [Feature]</b> ([URL])\n"
-        f"  * <b>The Source:</b> [1 sentence on who the publisher is]\n"
-        f"  * <b>The Problem:</b> [Explain the technical gap or pain point this update addresses]\n"
-        f"  * <b>The Solution:</b> [How this specific update/model solves that gap]\n"
-        f"  * <b>The Impact:</b> [How this changes our development workflow]\n\n"
+        f"* **[Company] | [Feature]** ([URL])\n"
+        f"  * **The What:** 1 sentence technical summary.\n"
+        f"  * **The Impact:** 1 sentence on why it matters to our team.\n\n"
         f"### 🧠 LLM & MODEL UPDATES\n"
+        f"* [Item] ([URL])\n\n"
         f"### 🤖 AGENT & FRAMEWORK UPDATES\n"
+        f"* [Item] ([URL])\n\n"
         f"### 💻 FULL-STACK & DEVOPS UPDATES\n"
-        f"### 🔧 TECH & INFRASTRUCTURE\n\n"
+        f"* [Item] ([URL])\n\n"
+        f"### 🔧 TECH & INFRASTRUCTURE\n"
+        f"* [Item] ([URL])\n\n"
         f"### 💡 PROMPT OF THE DAY\n"
-        f"<b>Goal:</b> Technical Growth\n"
-        f"> [The actual prompt text]\n"
+        f"**Goal:** Technical Architecture\n"
+        f"> [The actual prompt text]\n\n"
         f"Keep the tone professional yet crispy. Ensure every item has a URL."
     )
 
@@ -81,7 +83,6 @@ prompt = (
             response = client.models.generate_content(model=model_id, contents=prompt)
             return response.text
         except Exception as e:
-
             if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
                 print(f"⚠️ Quota hit. Waiting 70s for cooldown (Attempt {i+1}/{retries})...")
                 time.sleep(70)
