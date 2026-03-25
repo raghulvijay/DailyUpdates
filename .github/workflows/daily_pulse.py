@@ -92,14 +92,21 @@ def generate_full_brief(raw_content, retries=3):
     return "AI Generation Failed. Please check the logs."
 
 def post_to_zoho(message):
+    if not message:
+        return
     url = WEBHOOK_URL.strip() if WEBHOOK_URL else None
     if not url: return
 
     print("📤 Sending to Zoho Cliq...")
     try:
-        res = requests.post(url, json={"text": message}, timeout=15)
+        # ADDED "broadcast": "true" to the payload
+        payload = {
+            "text": message,
+            "broadcast": "true" 
+        }
+        res = requests.post(url, json=payload, timeout=15)
         res.raise_for_status()
-        print("✅ Daily Pill Delivered.")
+        print("✅ Daily Pill Broadcasted to all subscribers.")
     except Exception as e: 
         print(f"❌ Zoho Error: {e}")
 
